@@ -1,0 +1,178 @@
+Protection: $4 (4) (weak bits)
+
+The first $3A bytes are stable (all $00).
+
+
+Cracked by:
+ - Move 2nd copy of sector $4 to $204 (516, offset $10190)
+ - Change loading behaviour
+
+
+Routine in sector $1:
+----------------------------------------------------------
+
+8522: A9 00             LDA #$00	# buffer $9800
+8524: 8D 04 03          STA DBUFLO
+8527: A9 98             LDA #$98
+8529: 8D 05 03          STA DBUFHI
+852C: A9 04             LDA #$04	# sector $4
+852E: 8D 0A 03          STA DAUX1
+8531: A9 00             LDA #$00
+8533: 8D 0B 03          STA DAUX2
+8536: A9 52             LDA #$52
+8538: 8D 02 03          STA DCOMND
+
+853B: A9 01             LDA #$01
+853D: 8D 01 03          STA DUNIT
+8540: 20 53 E4          JSR DSKINV	# read 1st $4
+----------------------------------------------------------
+853B: 20 53 E4          JSR DSKINV
+853E: A9 02             LDA #$02	# read $204 instead of 2nd $4
+8540: 8D 0B 03          STA DAUX2
+
+8543: EE 05 03          INC DBUFHI
+8546: 20 53 E4          JSR DSKINV	# read 2nd $4 / $204
+8549: A0 00             LDY #$00
+854B: B9 00 98          LDA $9800,Y
+854E: 59 00 99          EOR $9900,Y
+8551: 99 00 9A          STA $9A00,Y
+8554: C8                INY
+8555: 10 F4             BPL $854B
+8557: A9 00             LDA #$00
+8559: A0 38             LDY #$38
+855B: 19 00 9A          ORA $9A00,Y
+855E: D0 0E             BNE $856E
+8560: 88                DEY
+8561: 10 F8             BPL $855B
+8563: A0 50             LDY #$50
+8565: 19 F8 99          ORA $99F8,Y
+8568: C8                INY
+8569: 10 FA             BPL $8565
+856B: AA                TAX
+856C: D0 03             BNE $8571
+856E: 4C 6E 85          JMP $856E
+8571: A9 E8             LDA #$E8
+
+
+Routine in sector $115 (277) at offset $8a10 - EOR $78:
+----------------------------------------------------------
+
+170F: A9 00             LDA #$00	# buffer $b000
+1711: 8D 04 03          STA DBUFLO
+1714: A9 B0             LDA #$B0
+1716: 8D 05 03          STA DBUFHI
+1719: A9 04             LDA #$04	# sector $4
+171B: 8D 0A 03          STA DAUX1
+171E: A9 00             LDA #$00
+1720: 8D 0B 03          STA DAUX2
+1723: A9 52             LDA #$52
+1725: 8D 02 03          STA DCOMND
+
+1728: A9 01             LDA #$01
+172A: 8D 01 03          STA DUNIT
+172D: 20 53 E4          JSR DSKINV	# read 1st $4
+----------------------------------------------------------
+1728: 20 53 E4          JSR DSKINV
+172B: A9 02             LDA #$02	# sector $204 instead of 2nd $4
+172D: 8D 0B 03          STA DAUX2
+
+
+EOR with current value of X at file offset $8a30 (see below):
+
+org	disk	CC 67 EA 69 6A 4A 38 88
+	EOR	65 66 67 68 69 6A 6B 6C
+	code	A9 01 8D 01 03 20 53 E4
+----------------------------------------------------------
+crack	disk	45 35 83 C1 6B E7 60 6F
+	EOR	65 66 67 68 69 6A 6B 6C
+	code	20 53 E4 A9 02 8D 0B 03
+
+1730: EE 05 03          INC DBUFHI
+1733: 20 53 E4          JSR DSKINV	# read 2nd $4 / $204
+1736: A0 00             LDY #$00
+1738: B9 00 B0          LDA $B000,Y
+173B: 59 00 B1          EOR $B100,Y
+173E: 99 00 B2          STA $B200,Y
+1741: C8                INY
+1742: 10 F4             BPL $1738
+1744: A9 00             LDA #$00
+1746: A0 38             LDY #$38
+1748: 19 00 B2          ORA $B200,Y
+174B: D0 0C             BNE $1759
+174D: 88                DEY
+174E: 10 F8             BPL $1748
+1750: A0 50             LDY #$50
+1752: 19 F8 B1          ORA $B1F8,Y
+1755: C8                INY
+1756: 10 FA             BPL $1752
+1758: A8                TAY
+1759: F0 FE             BEQ $1759
+175B: 60                RTS
+
+
+Decryption routine for above code in sector $2:
+----------------------------------------------------------
+
+85DB: A9 80             LDA #$80	# starting buffer $480
+85DD: 85 90             STA $90
+85DF: A9 04             LDA #$04
+85E1: 85 91             STA $91
+85E3: A0 00             LDY #$00
+85E5: A2 BC             LDX #$BC	# byte counter
+85E7: E8        L85E7   INX
+85E8: 8A                TXA		# current byte counter is value for EOR
+85E9: 51 90             EOR ($90),Y
+85EB: 91 90             STA ($90),Y
+85ED: E6 90             INC $90
+85EF: D0 02             BNE $85F3
+85F1: E6 91             INC $91
+85F3: A5 91     L85F3   LDA $91
+85F5: C9 36             CMP #$36	# decrypt until $3680
+85F7: 90 EE             BCC $85E7
+85F9: A5 90             LDA $90
+85FB: C9 80             CMP #$80
+85FD: 90 E8             BCC $85E7
+85FF: 60                RTS
+
+
+DISKMAP - 40 TRACKS - 18 SECTORS
+
+ 1 ********** *********. ........|| ||||||||||
+ 2 ********** ***.*****. ........|| ||||||||||
+ 3 ********** ***.*****. ........|| ||||||||||
+ 4 c********* ***.*****. ........|| ||||||||||
+ 5 ********** ***.*****. ........|| ||||||||||
+ 6 *******.** *********. ........|| ||||||||||
+ 7 *******.** *********. ........|| ||||||||||
+ 8 *******.** *********. ........|| ||||||||||
+ 9 *******.** *********. ........|| ||||||||||
+10 *******.** **.******. ........|| ||||||||||
+
+11 *******.** **.******. ........|| ||||||||||
+12 *******.** **.******. ........|| ||||||||||
+13 *******.** **.******. ........|| ||||||||||
+14 *******.** **.******. ........|| ||||||||||
+15 *******.** **.******. ........|| ||||||||||
+16 *******.** ********.. ........|| ||||||||||
+17 *******.** ********.. ........|| ||||||||||
+18 ********** ********.* ........|| ||||||||||
+
+* OK/DATA  .,;: OK/EMPTY ($00, $1A, $FF, other)
+| MISSING  d DELETED  C BAD CRC  l/L LONG/l+DELETED
+
+
+crack.rup
+NINJA1T
+raw 7fffffff 820ab7bb40a42907d2bb8fc8d4f05e73 ae2a3ca7b68744bed2cc74f351e17557b7d0eb91
+4b 2053e4a9028d0b03
+8a38 453583c16be7606f
+101cc fe30646879
+101d2 e8310469351428275d0cb45d0cb44b0cb44a40b44a56ec4a57a57a57b37b37b2372372217a17a0333333253333327f3333256b33327a0333253253327f27
+
+uncrack.rup
+NINJA1T
+raw 38a8b982 9a573c407b71011befd50b08aa3ff1db 754d48dceb1e30f23e8505e6d0b20b9088624cb5
+4b a9018d01032053e4
+8a38 cc67ea696a4a3888
+101cc 0000000000
+101d2 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
