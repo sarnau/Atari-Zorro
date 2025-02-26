@@ -6,7 +6,6 @@ import struct
 
 def parseATX(atxFilename):
 	data = bytearray(open(atxFilename,'rb').read())
-	SECTOR_SIZE = 128
 
 	CREATOR = {
 		0x01:'TX_CR_FX7',
@@ -25,6 +24,20 @@ def parseATX(atxFilename):
 		return False
 	if fh_version != 1:
 		print('File Header Version != 1')
+		return False
+
+	
+	if fh_density == 0: # single density (FM encoding)
+		SECTOR_SIZE = 128
+		SECTOR_COUNT = 18
+	elif fh_density == 1: # medium density (MFM encoding)
+		SECTOR_SIZE = 128
+		SECTOR_COUNT = 26
+	elif fh_density == 2: # double density (MFM encoding)
+		SECTOR_SIZE = 256
+		SECTOR_COUNT = 18
+	else:
+		print('Unknown density #%d' % fh_density)
 		return False
 
 	atx_offset = fh_start
@@ -75,10 +88,10 @@ def parseATX(atxFilename):
 								status.append('Reserved:01')
 						status_str = ','.join(status)
 
-						#print('$%08x : SECTOR HEADER NUMBER:%2d STATUS:%s POSITION:$%04x START:$%08x' % (soffset, sl_sector_number,status_str,sl_sector_position,sl_start_data))
+#						print('$%08x : SECTOR HEADER NUMBER:%2d STATUS:%s POSITION:$%04x START:$%08x' % (soffset, sl_sector_number,status_str,sl_sector_position,sl_start_data))
 
 						# read sector data as well
-						sno = th_track_number * 18 + sl_sector_number
+						sno = th_track_number * SECTOR_COUNT + sl_sector_number
 						spos = sl_sector_position / 26042
 						print('SECTOR @ $%08x #%3d, Track #%2d Sector #%2d / %s / %7.3f%%' % (sl_start_data, sno, th_track_number, sl_sector_number,status_str,spos),end='')
 
